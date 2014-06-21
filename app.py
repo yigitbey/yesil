@@ -95,13 +95,6 @@ def require_user(fn):
     return inner
 
 
-@app.route('/check_token', methods=['POST'])
-@require_user
-def check_token(user):
-    return Response(status=200)
-
-
-
 @app.route("/heartbeat", methods=['POST'])
 def heartbeat():
     data = request.json
@@ -158,15 +151,17 @@ def get_requests():
 def post_requests(user):
     data = request.json
     request_type = data.get("request_type")
-    user_id = user.id
+    user_id = user['_id']
     location = data.get("location")
-    db.requests.insert({
+    inserted_id = db.requests.insert({
         "date_created": datetime.now(),
         "request_type": request_type,
         "user_id": user_id,
         "location": location
     })
-    response = jsonify()
+    response = jsonify({
+        "request_id": str(inserted_id)
+    })
     response.status_code = 201
     return response
 
