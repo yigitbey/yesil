@@ -116,8 +116,6 @@ def heartbeat():
 
         return Response(status=202)
 
-
-
     bundle = {
         "location": location,
         "last_seen": datetime.now()
@@ -145,4 +143,5 @@ def post_requests():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", debug=True)
+
