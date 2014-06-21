@@ -61,10 +61,21 @@ def get_requests():
 
 
 @app.route("/requests", methods=['POST'])
-def post_requests():
-    return jsonify({
-        "objects": []
+@require_user
+def post_requests(user):
+    data = request.json
+    request_type = data.get("request_type")
+    user_id = user.id
+    location = data.get("location")
+    db.requests.insert({
+        "date_created": datetime.now(),
+        "request_type": request_type,
+        "user_id": user_id,
+        "location": location
     })
+    response = jsonify()
+    response.status_code = 201
+    return response
 
 
 if __name__ == "__main__":
