@@ -84,6 +84,24 @@ def login():
 
     return jsonify(user_name=user_name, token=user['token'])
 
+
+def require_user(fn):
+    def inner():
+        token = request.json['token']
+        assert_if(token, 'token needed for this action')
+        user = db.users.find_one(dict(token=token))
+        assert_if(user, "token is wrong")
+        return fn(user)
+    return inner
+
+
+@app.route('/check_token', methods=['POST'])
+@require_user
+def check_token(user):
+    return Response(status=200)
+
+
+
 @app.route("/heartbeat", methods=['POST'])
 def heartbeat():
     data = request.json
@@ -128,7 +146,7 @@ def heartbeat():
     return Response(status=201)
 
 
-@app.route("/requests", methods=['POST'])
+@app.route("/requests", methods=['GET'])
 def get_requests():
     return jsonify({
         "objects": []
