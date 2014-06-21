@@ -1,13 +1,13 @@
+import uuid
+from functools import wraps
 from datetime import datetime
+
 from pymongo import Connection
 from flask import Flask, jsonify, request, Response
 
 import settings
-from helpers import sha1_string, force_unicode, force_utf8
+from helpers import sha1_string, force_utf8
 
-from flask import jsonify
-import time
-import uuid
 
 class InvalidUsage(Exception):
     status_code = 400
@@ -27,11 +27,13 @@ class InvalidUsage(Exception):
 app = Flask(__name__)
 db = Connection()[settings.DB_NAME]
 
+
 @app.errorhandler(InvalidUsage)
 def handle_invalid_usage(error):
     response = jsonify(error.to_dict())
     response.status_code = error.status_code
     return response
+
 
 def assert_if(condition, error_message):
     if not condition:
@@ -54,14 +56,14 @@ def register():
 
     hashed_password = sha1_string(force_utf8(password) + "users")
     token = sha1_string(str(uuid.uuid4()))
-    db.users.insert(dict(
+    user = db.users.insert(dict(
         user_name = user_name,
         email = email,
         password = hashed_password,
         token = token
     ))
 
-    return Response(status=201)
+    return jsonify(user_name=user_name, token=token)
 
 
 @app.route('/login', methods=['POST'])
@@ -86,6 +88,7 @@ def login():
 
 
 def require_user(fn):
+    @wraps(fn)
     def inner():
         token = request.json['token']
         assert_if(token, 'token needed for this action')
