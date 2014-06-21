@@ -1,9 +1,9 @@
 import uuid
-from bson import ObjectId
 from functools import wraps
 from datetime import datetime
 
-from pymongo import Connection
+from bson import ObjectId
+from pymongo import Connection, GEO2D
 from flask import Flask, jsonify, request, Response
 
 import settings
@@ -155,6 +155,15 @@ def post_requests(user):
         "user_id": user_id,
         "location": location
     })
+    db.places.ensure_index([("location", GEO2D)])
+    nearby_activities = db.activities.find({"location": {
+        "$near": location
+    }})
+
+    for activity in nearby_activities:
+        # todo handle parse.com api
+        pass
+
     response = jsonify({
         "request_id": str(inserted_id)
     })
