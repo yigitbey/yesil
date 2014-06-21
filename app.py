@@ -103,46 +103,34 @@ def require_user(fn):
 
 
 @app.route("/heartbeat", methods=['POST'])
-def heartbeat():
+@require_user
+def heartbeat(user):
     data = request.json
-    access_token = data.get('access_token')
+    access_token = data.get('token')
     device_id = data.get('device_id')
     location = data.get('location')
 
     if not device_id and not access_token:
         return Response(status=400)
 
-    if device_id:
-        filters = {
-            "device_id": device_id
-        }
-    else:
-        filters = {
-            "access_token": access_token
-        }
-
-    existing_activity = db.activity.find_one(filters)
-
-    if existing_activity:
-
-        db.activity.update(filters, {
-            "$set": {
-                "location": location,
-                "last_seen": datetime.now()
-            }
-        })
-
-        return Response(status=202)
+    last_seen = datetime.utcnow()
 
     bundle = {
+        "access_token": access_token,
+        "device_id": device_id,
         "location": location,
-        "last_seen": datetime.now()
+        "last_seen": last_seen,
+        'user_id': user['_id']
     }
 
-    bundle.update(filters)
-
-    db.activity.insert(bundle)
-
+    db.activities.insert(bundle)
+    db.users.update(dict(user_id=user['_id']), {
+        '$set': {
+            'last_location': location,
+            'last_device_id': device_id,
+            'last_seen': last_seen
+        }
+    })
     return Response(status=201)
 
 
@@ -171,6 +159,44 @@ def post_requests(user):
     })
     response.status_code = 201
     return response
+
+@app.route('/ack_request', methods=['POST'])
+@require_user
+def ack_request(user):
+    data = request.json
+    request_id = data.get('request_id')
+    assert_if(request_id, 'required param missing, request_id')
+    assert_if(not db.requests.find_one(dict(request_id=request_id)), 'wrong request')
+    assert_if(not db.acknowledgements.find_one(dict(request_id=request_id, user_id=user['_id'])), 'already acknowledged')
+    acknowledgment = db.acknowledgements.insert(dict(
+        request_id  = request_id,
+        created_at = datetime.utcnow()
+    ))
+    return jsonify(acknowledgment_id=str(acknowledgment['_id']))
+
+@app.route('/acknowledgements', methods=['POST'])
+@require_user
+def acknowledgements(user):
+    data = request.json
+    request_id = data.get('request_id')
+    assert_if(request_id, 'required param missing, request_id')
+    assert_if(not db.requests.find_one(dict(request_id=request_id)), 'wrong request')
+
+    acknowledgements = db.acknowledgements.find(dict(
+        request_id = request_id
+    ))
+
+    ret = []
+    for ack in acknowledgements:
+        ack_user = db.users.find_one(dict(user_id=ack['user_id']))
+        ret.append(dict(
+            user_id = str(ack_user['_id']),
+            user_name = ack_user['user_name'],
+            acknowledged_at = ack['created_at'],
+            last_location = user['last_location']
+        ))
+
+    return jsonify(ret)
 
 
 if __name__ == "__main__":
