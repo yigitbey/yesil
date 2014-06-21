@@ -1,15 +1,13 @@
+import uuid
+from functools import wraps
 from datetime import datetime
+
 from pymongo import Connection
 from flask import Flask, jsonify, request, Response
 
 import settings
-from helpers import sha1_string, force_unicode, force_utf8
+from helpers import sha1_string, force_utf8
 
-from flask import jsonify
-import time
-import uuid
-
-from functools import wraps
 
 class InvalidUsage(Exception):
     status_code = 400
@@ -29,11 +27,13 @@ class InvalidUsage(Exception):
 app = Flask(__name__)
 db = Connection()[settings.DB_NAME]
 
+
 @app.errorhandler(InvalidUsage)
 def handle_invalid_usage(error):
     response = jsonify(error.to_dict())
     response.status_code = error.status_code
     return response
+
 
 def assert_if(condition, error_message):
     if not condition:
@@ -102,17 +102,6 @@ def require_user(fn):
     return inner
 
 
-@app.route('/check_token', methods=['POST'])
-@require_user
-def check_token(user):
-    return Response(status=200)
-
-@app.route('/check_token2', methods=['POST'])
-@require_user
-def check_token2(user):
-    return Response(status=200)
-
-
 @app.route("/heartbeat", methods=['POST'])
 def heartbeat():
     data = request.json
@@ -165,10 +154,23 @@ def get_requests():
 
 
 @app.route("/requests", methods=['POST'])
-def post_requests():
-    return jsonify({
-        "objects": []
+@require_user
+def post_requests(user):
+    data = request.json
+    request_type = data.get("request_type")
+    user_id = user['_id']
+    location = data.get("location")
+    inserted_id = db.requests.insert({
+        "date_created": datetime.now(),
+        "request_type": request_type,
+        "user_id": user_id,
+        "location": location
     })
+    response = jsonify({
+        "request_id": str(inserted_id)
+    })
+    response.status_code = 201
+    return response
 
 
 if __name__ == "__main__":
