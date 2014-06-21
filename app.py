@@ -1,4 +1,5 @@
 import uuid
+from bson import ObjectId
 from functools import wraps
 from datetime import datetime
 
@@ -124,13 +125,13 @@ def heartbeat(user):
     }
 
     db.activities.insert(bundle)
-    db.users.update(dict(user_id=user['_id']), {
-        '$set': {
+    db.users.update({'_id': user['_id']}, {
+        "$set": {
             'last_location': location,
             'last_device_id': device_id,
             'last_seen': last_seen
         }
-    })
+    }, multi=True)
     return Response(status=201)
 
 
