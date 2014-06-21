@@ -90,7 +90,11 @@ def login():
 def require_user(fn):
     @wraps(fn)
     def inner():
-        token = request.json['token']
+        try:
+            token = request.json['token']
+        except:
+            token = request.args.get('token')
+
         assert_if(token, 'token needed for this action')
         user = db.users.find_one(dict(token=token))
         assert_if(user, "token is wrong")
