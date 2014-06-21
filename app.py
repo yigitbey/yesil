@@ -150,7 +150,7 @@ def post_requests(user):
     user_id = user['_id']
     location = data.get("location")
     inserted_id = db.requests.insert({
-        "date_created": datetime.now(),
+        "date_created": datetime.utcnow(),
         "request_type": request_type,
         "user_id": user_id,
         "location": location
@@ -169,11 +169,12 @@ def ack_request(user):
     assert_if(request_id, 'required param missing, request_id')
     assert_if(not db.requests.find_one(dict(request_id=request_id)), 'wrong request')
     assert_if(not db.acknowledgements.find_one(dict(request_id=request_id, user_id=user['_id'])), 'already acknowledged')
-    acknowledgment = db.acknowledgements.insert(dict(
+    acknowledgement_id = db.acknowledgements.insert(dict(
         request_id  = request_id,
+        user_id=user['_id'],
         created_at = datetime.utcnow()
     ))
-    return jsonify(acknowledgment_id=str(acknowledgment['_id']))
+    return jsonify(acknowledgment_id=str(acknowledgement_id))
 
 @app.route('/acknowledgements', methods=['POST'])
 @require_user
@@ -189,16 +190,14 @@ def acknowledgements(user):
 
     ret = []
     for ack in acknowledgements:
-        ack_user = db.users.find_one(dict(user_id=ack['user_id']))
+        ack_user = db.users.find_one(dict(_id=ObjectId(ack['user_id'])))
         ret.append(dict(
             user_id = str(ack_user['_id']),
             user_name = ack_user['user_name'],
-            acknowledged_at = ack['created_at'],
+            acknowledged_at = str(ack['created_at']),
             last_location = user['last_location']
         ))
-
-    return jsonify(ret)
-
+    return jsonify(acknowledgements=ret)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", debug=True)
