@@ -9,6 +9,8 @@ from flask import jsonify
 import time
 import uuid
 
+from functools import wraps
+
 class InvalidUsage(Exception):
     status_code = 400
 
@@ -54,14 +56,14 @@ def register():
 
     hashed_password = sha1_string(force_utf8(password) + "users")
     token = sha1_string(str(uuid.uuid4()))
-    db.users.insert(dict(
+    user = db.users.insert(dict(
         user_name = user_name,
         email = email,
         password = hashed_password,
         token = token
     ))
 
-    return Response(status=201)
+    return jsonify(user_name=user_name, token=token)
 
 
 @app.route('/login', methods=['POST'])
@@ -86,6 +88,7 @@ def login():
 
 
 def require_user(fn):
+    @wraps(fn)
     def inner():
         token = request.json['token']
         assert_if(token, 'token needed for this action')
@@ -100,6 +103,10 @@ def require_user(fn):
 def check_token(user):
     return Response(status=200)
 
+@app.route('/check_token2', methods=['POST'])
+@require_user
+def check_token2(user):
+    return Response(status=200)
 
 
 @app.route("/heartbeat", methods=['POST'])
